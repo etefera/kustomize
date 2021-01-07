@@ -26,14 +26,14 @@ func TestValueAddFilter(t *testing.T) {
 	}{
 		"simpleAdd": {
 			input: `
-		kind: SomeKind
-		`,
+kind: SomeKind
+`,
 			expectedOutput: `
-		kind: SomeKind
-		spec:
-		  resourceRef:
-		    external: valueAdded
-		`,
+kind: SomeKind
+spec:
+  resourceRef:
+    external: valueAdded
+`,
 			filter: Filter{
 				Value:     "valueAdded",
 				FieldPath: "spec/resourceRef/external",
@@ -110,11 +110,11 @@ spec:
 		"replaceExisting": {
 			input: someResource,
 			expectedOutput: `
-		kind: SomeKind
-		spec:
-		  resourceRef:
-		    external: valueAdded
-		`,
+kind: SomeKind
+spec:
+  resourceRef:
+    external: valueAdded
+`,
 			filter: Filter{
 				Value:     "valueAdded",
 				FieldPath: "spec/resourceRef/external",
@@ -123,11 +123,11 @@ spec:
 		"prefixExisting": {
 			input: someResource,
 			expectedOutput: `
-		kind: SomeKind
-		spec:
-		  resourceRef:
-		    external: valueAdded/projects/whatever
-		`,
+kind: SomeKind
+spec:
+  resourceRef:
+    external: valueAdded/projects/whatever
+`,
 			filter: Filter{
 				Value:            "valueAdded",
 				FieldPath:        "spec/resourceRef/external",
@@ -137,11 +137,11 @@ spec:
 		"postfixExisting": {
 			input: someResource,
 			expectedOutput: `
-		kind: SomeKind
-		spec:
-		  resourceRef:
-		    external: projects/whatever/valueAdded
-		`,
+kind: SomeKind
+spec:
+  resourceRef:
+    external: projects/whatever/valueAdded
+`,
 			filter: Filter{
 				Value:            "valueAdded",
 				FieldPath:        "spec/resourceRef/external",
@@ -151,11 +151,11 @@ spec:
 		"placeInMiddleOfExisting": {
 			input: someResource,
 			expectedOutput: `
-		kind: SomeKind
-		spec:
-		  resourceRef:
-		    external: projects/valueAdded/whatever
-		`,
+kind: SomeKind
+spec:
+  resourceRef:
+    external: projects/valueAdded/whatever
+`,
 			filter: Filter{
 				Value:            "valueAdded",
 				FieldPath:        "spec/resourceRef/external",
