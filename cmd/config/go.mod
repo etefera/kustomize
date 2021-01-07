@@ -1,6 +1,6 @@
 module sigs.k8s.io/kustomize/cmd/config
 
-go 1.14
+go 1.15
 
 require (
 	github.com/go-errors/errors v1.0.1
@@ -10,13 +10,12 @@ require (
 	github.com/niemeyer/pretty v0.0.0-20200227124842-a10e7caefd8e // indirect
 	github.com/olekukonko/tablewriter v0.0.4
 	github.com/spf13/cobra v1.0.0
-	github.com/spf13/pflag v1.0.5
 	github.com/stretchr/testify v1.6.1
 	golang.org/x/net v0.0.0-20200625001655-4c5254603344 // indirect
 	golang.org/x/xerrors v0.0.0-20200804184101-5ec99f83aff1 // indirect
 	gopkg.in/check.v1 v1.0.0-20200227125254-8fa46927fb4f // indirect
-	k8s.io/apimachinery v0.17.3
-	sigs.k8s.io/kustomize/kyaml v0.9.2
+	k8s.io/apimachinery v0.18.10
+	sigs.k8s.io/kustomize/kyaml v0.10.5
 )
 
-replace sigs.k8s.io/kustomize/kyaml v0.9.2 => ../../kyaml
+replace sigs.k8s.io/kustomize/kyaml => ../../kyaml

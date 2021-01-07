@@ -10,10 +10,12 @@
 #
 # Fails if the file already exists.
 
-if [ -z "$1" ]; then
-    version=""
-  else
-    version=$1
+curl_timeout=600
+release_url=https://api.github.com/repos/kubernetes-sigs/kustomize/releases
+
+if [ -n "$1" ]; then
+    version=v$1
+    release_url=${release_url}/tags/kustomize%2F$version
 fi
 
 where=$PWD
@@ -37,24 +39,23 @@ trap cleanup EXIT
 pushd $tmpDir >& /dev/null
 
 opsys=windows
+arch=amd64
 if [[ "$OSTYPE" == linux* ]]; then
   opsys=linux
 elif [[ "$OSTYPE" == darwin* ]]; then
   opsys=darwin
 fi
 
-curl -s https://api.github.com/repos/kubernetes-sigs/kustomize/releases |\
-  grep browser_download |\
-  grep $opsys |\
+curl -m $curl_timeout -s $release_url |\
+  grep browser_download.*${opsys}_${arch} |\
   cut -d '"' -f 4 |\
-  grep /kustomize/v$version |\
   sort | tail -n 1 |\
-  xargs curl -s -O -L
+  xargs curl -m $curl_timeout -sLO
 
 if [ -e ./kustomize_v*_${opsys}_amd64.tar.gz ]; then
     tar xzf ./kustomize_v*_${opsys}_amd64.tar.gz
 else
-    echo "Error: kustomize binary with the version $version does not exist!"
+    echo "Error: kustomize binary with the version ${version#v} does not exist!"
     exit 1
 fi
 

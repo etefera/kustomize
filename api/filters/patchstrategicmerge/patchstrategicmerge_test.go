@@ -15,6 +15,101 @@ func TestFilter(t *testing.T) {
 		patch    *yaml.RNode
 		expected string
 	}{
+		"simple": {
+			input: `apiVersion: v1
+kind: Deployment
+metadata:
+  name: clown
+spec:
+  numReplicas: 1
+`,
+			patch: yaml.MustParse(`apiVersion: v1
+kind: Deployment
+metadata:
+  name: clown
+spec:
+  numReplicas: 999
+`),
+			expected: `apiVersion: v1
+kind: Deployment
+metadata:
+  name: clown
+spec:
+  numReplicas: 999
+`,
+		},
+		"nullMapEntry1": {
+			input: `
+apiVersion: example.com/v1
+kind: Foo
+metadata:
+  name: my-foo
+spec:
+  bar:
+    B:
+    C: Z
+`,
+			patch: yaml.MustParse(`
+apiVersion: example.com/v1
+kind: Foo
+metadata:
+  name: my-foo
+spec:
+  bar:
+    C: Z
+    D: W
+  baz:
+    hello: world
+`),
+			expected: `
+apiVersion: example.com/v1
+kind: Foo
+metadata:
+  name: my-foo
+spec:
+  bar:
+    C: Z
+    D: W
+  baz:
+    hello: world
+`,
+		},
+		"nullMapEntry2": {
+			input: `
+apiVersion: example.com/v1
+kind: Foo
+metadata:
+  name: my-foo
+spec:
+  bar:
+    C: Z
+    D: W
+  baz:
+    hello: world
+`,
+			patch: yaml.MustParse(`
+apiVersion: example.com/v1
+kind: Foo
+metadata:
+  name: my-foo
+spec:
+  bar:
+    B:
+    C: Z
+`),
+			expected: `
+apiVersion: example.com/v1
+kind: Foo
+metadata:
+  name: my-foo
+spec:
+  bar:
+    C: Z
+    D: W
+  baz:
+    hello: world
+`,
+		},
 		"simple patch": {
 			input: `
 apiVersion: apps/v1
@@ -370,6 +465,213 @@ spec:
         image: test2
       - name: test
         image: test
+`,
+		},
+		"list map keys - add a port, no names": {
+			input: `
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+ name: test-deployment
+spec:
+ template:
+   spec:
+     containers:
+     - image: test-image
+       name: test-deployment
+       ports:
+       - containerPort: 8080
+         protocol: TCP
+`,
+			patch: yaml.MustParse(`
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+ name: test-deployment
+spec:
+ template:
+   spec:
+     containers:
+     - image: test-image
+       name: test-deployment
+       ports:
+       - containerPort: 8080
+         protocol: UDP
+       - containerPort: 80
+         protocol: UDP
+`),
+			expected: `
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: test-deployment
+spec:
+  template:
+    spec:
+      containers:
+      - image: test-image
+        name: test-deployment
+        ports:
+        - containerPort: 8080
+          protocol: UDP
+        - containerPort: 80
+          protocol: UDP
+        - containerPort: 8080
+          protocol: TCP
+`,
+		},
+		"list map keys - add name to port": {
+			input: `
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+ name: test-deployment
+spec:
+ template:
+   spec:
+     containers:
+     - image: test-image
+       name: test-deployment
+       ports:
+       - containerPort: 8080
+         protocol: UDP
+       - containerPort: 8080
+         protocol: TCP
+`,
+			patch: yaml.MustParse(`
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+ name: test-deployment
+spec:
+ template:
+   spec:
+     containers:
+     - image: test-image
+       name: test-deployment
+       ports:
+       - containerPort: 8080
+         protocol: UDP
+         name: UDP-name-patch
+`),
+			expected: `
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: test-deployment
+spec:
+  template:
+    spec:
+      containers:
+      - image: test-image
+        name: test-deployment
+        ports:
+        - containerPort: 8080
+          protocol: UDP
+          name: UDP-name-patch
+        - containerPort: 8080
+          protocol: TCP
+`,
+		},
+		"list map keys - replace port name": {
+			input: `
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+ name: test-deployment
+spec:
+ template:
+   spec:
+     containers:
+     - image: test-image
+       name: test-deployment
+       ports:
+       - containerPort: 8080
+         protocol: UDP
+         name: UDP-name-original
+       - containerPort: 8080
+         protocol: TCP
+         name: TCP-name-original
+`,
+			patch: yaml.MustParse(`
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+ name: test-deployment
+spec:
+ template:
+   spec:
+     containers:
+     - image: test-image
+       name: test-deployment
+       ports:
+       - containerPort: 8080
+         protocol: UDP
+         name: UDP-name-patch
+`),
+			expected: `
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: test-deployment
+spec:
+  template:
+    spec:
+      containers:
+      - image: test-image
+        name: test-deployment
+        ports:
+        - containerPort: 8080
+          protocol: UDP
+          name: UDP-name-patch
+        - containerPort: 8080
+          protocol: TCP
+          name: TCP-name-original
+`,
+		},
+		"list map keys - add a port, no protocol": {
+			input: `
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+ name: test-deployment
+spec:
+ template:
+   spec:
+     containers:
+     - image: test-image
+       name: test-deployment
+       ports:
+       - containerPort: 8080
+`,
+			patch: yaml.MustParse(`
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+ name: test-deployment
+spec:
+ template:
+   spec:
+     containers:
+     - image: test-image
+       name: test-deployment
+       ports:
+       - containerPort: 80
+`),
+			expected: `
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: test-deployment
+spec:
+  template:
+    spec:
+      containers:
+      - image: test-image
+        name: test-deployment
+        ports:
+        - containerPort: 80
+        - containerPort: 8080
 `,
 		},
 	}

@@ -31,8 +31,8 @@ Thus, do `kyaml` first, then `cli-utils`, etc.
 
 #### Consider fetching new OpenAPI data
 The Kubernetes OpenAPI data changes no more frequently than once per quarter. 
-You can check the current version that kustomize is using with the
-following command. 
+You can check the current builtin versions that kustomize is using with the
+following command.
 ```
 kustomize openapi info
 ```
@@ -66,7 +66,7 @@ gorepomod release kyaml --doIt
 Undraft the release on the [kustomize repo release page].
 
 
-#### Release `cli-utils`
+#### Release [`cli-utils`](https://github.com/kubernetes-sigs/cli-utils)
 
 ```
 cd ../cli-utils
@@ -78,7 +78,8 @@ cd ../cli-utils
 go mod edit -require sigs.k8s.io/kustomize/kyaml@v0.9.1
 
 # Test it
-go test ./...
+make test
+make test-e2e
 
 # Merge these changes to upstream (make a PR, merge it)
 

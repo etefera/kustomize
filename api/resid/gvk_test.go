@@ -1,23 +1,12 @@
-/*
-Copyright 2018 The Kubernetes Authors.
-
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-*/
+// Copyright 2018 The Kubernetes Authors.
+// SPDX-License-Identifier: Apache-2.0
 
 package resid
 
 import (
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
 var equalsTests = []struct {
@@ -110,17 +99,31 @@ var stringTests = []struct {
 
 func TestString(t *testing.T) {
 	for _, hey := range stringTests {
-		if hey.x.String() != hey.s {
-			t.Fatalf("bad string for %v '%s'", hey.x, hey.s)
-		}
+		assert.Equal(t, hey.s, hey.x.String())
+	}
+}
+
+func TestApiVersion(t *testing.T) {
+	for _, hey := range []struct {
+		x   Gvk
+		exp string
+	}{
+		{Gvk{}, ""},
+		{Gvk{Kind: "k"}, ""},
+		{Gvk{Version: "v"}, "v"},
+		{Gvk{Version: "v", Kind: "k"}, "v"},
+		{Gvk{Group: "g"}, "g/"},
+		{Gvk{Group: "g", Kind: "k"}, "g/"},
+		{Gvk{Group: "g", Version: "v"}, "g/v"},
+		{Gvk{Group: "g", Version: "v", Kind: "k"}, "g/v"},
+	} {
+		assert.Equal(t, hey.exp, hey.x.ApiVersion())
 	}
 }
 
 func TestStringWoEmptyField(t *testing.T) {
 	for _, hey := range stringTests {
-		if hey.x.StringWoEmptyField() != hey.r {
-			t.Fatalf("bad string %s for %v '%s'", hey.x.StringWoEmptyField(), hey.x, hey.r)
-		}
+		assert.Equal(t, hey.r, hey.x.StringWoEmptyField())
 	}
 }
 
@@ -139,12 +142,8 @@ func TestParseGroupVersion(t *testing.T) {
 	}
 	for _, tc := range tests {
 		g, v := ParseGroupVersion(tc.input)
-		if g != tc.g {
-			t.Errorf("%s: expected group '%s', got '%s'", tc.input, tc.g, g)
-		}
-		if v != tc.v {
-			t.Errorf("%s: expected version '%s', got '%s'", tc.input, tc.v, v)
-		}
+		assert.Equal(t, tc.g, g, tc.input)
+		assert.Equal(t, tc.v, v, tc.input)
 	}
 }
 
@@ -250,8 +249,43 @@ func TestSelectByGVK(t *testing.T) {
 
 	for _, tc := range testCases {
 		filtered := tc.in.IsSelected(tc.filter)
-		if filtered != tc.expected {
-			t.Fatalf("unexpected filter result for test case: %v", tc.description)
-		}
+		assert.Equal(t, tc.expected, filtered, tc.description)
+	}
+}
+
+func TestIsNamespaceableKind(t *testing.T) {
+	testCases := []struct {
+		name     string
+		gvk      Gvk
+		expected bool
+	}{
+		{
+			"namespaceable resource",
+			Gvk{Group: "apps", Version: "v1", Kind: "Deployment"},
+			true,
+		},
+		{
+			"clusterscoped resource",
+			Gvk{Group: "", Version: "v1", Kind: "Namespace"},
+			false,
+		},
+		{
+			"unknown resource (should default to namespaceable)",
+			Gvk{Group: "example1.com", Version: "v1", Kind: "Bar"},
+			true,
+		},
+		{
+			"unknown resource (should default to namespaceable)",
+			Gvk{Group: "apps", Version: "v1", Kind: "ClusterRoleBinding"},
+			true,
+		},
+	}
+
+	for i := range testCases {
+		test := testCases[i]
+		t.Run(test.name, func(t *testing.T) {
+			isNamespaceable := test.gvk.IsNamespaceableKind()
+			assert.Equal(t, test.expected, isNamespaceable)
+		})
 	}
 }

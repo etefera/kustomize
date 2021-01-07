@@ -1,16 +1,18 @@
 // Copyright 2019 The Kubernetes Authors.
 // SPDX-License-Identifier: Apache-2.0
 
-// Package resource implements representations of k8s API resources.
 package resource
 
 import (
+	"fmt"
 	"reflect"
 	"strings"
 
+	"sigs.k8s.io/kustomize/api/filters/patchstrategicmerge"
 	"sigs.k8s.io/kustomize/api/ifc"
 	"sigs.k8s.io/kustomize/api/resid"
 	"sigs.k8s.io/kustomize/api/types"
+	"sigs.k8s.io/kustomize/kyaml/filtersutil"
 	"sigs.k8s.io/yaml"
 )
 
@@ -42,6 +44,10 @@ func (r *Resource) Copy() ifc.Kunstructured {
 
 func (r *Resource) GetFieldValue(f string) (interface{}, error) {
 	return r.kunStr.GetFieldValue(f)
+}
+
+func (r *Resource) GetDataMap() map[string]string {
+	return r.kunStr.GetDataMap()
 }
 
 func (r *Resource) GetGvk() resid.Gvk {
@@ -89,7 +95,16 @@ func (r *Resource) MatchesAnnotationSelector(selector string) (bool, error) {
 }
 
 func (r *Resource) SetAnnotations(m map[string]string) {
+	if len(m) == 0 {
+		// Force field erasure.
+		r.kunStr.SetAnnotations(nil)
+		return
+	}
 	r.kunStr.SetAnnotations(m)
+}
+
+func (r *Resource) SetDataMap(m map[string]string) {
+	r.kunStr.SetDataMap(m)
 }
 
 func (r *Resource) SetGvk(gvk resid.Gvk) {
@@ -97,6 +112,11 @@ func (r *Resource) SetGvk(gvk resid.Gvk) {
 }
 
 func (r *Resource) SetLabels(m map[string]string) {
+	if len(m) == 0 {
+		// Force field erasure.
+		r.kunStr.SetLabels(nil)
+		return
+	}
 	r.kunStr.SetLabels(m)
 }
 
@@ -137,10 +157,12 @@ func (r *Resource) DeepCopy() *Resource {
 	return rc
 }
 
-// Replace performs replace with other resource.
-func (r *Resource) Replace(other *Resource) {
+// CopyMergeMetaDataFields copies everything but the non-metadata in
+// the ifc.Kunstructured map, merging labels and annotations.
+func (r *Resource) CopyMergeMetaDataFieldsFrom(other *Resource) {
 	r.SetLabels(mergeStringMaps(other.GetLabels(), r.GetLabels()))
-	r.SetAnnotations(mergeStringMaps(other.GetAnnotations(), r.GetAnnotations()))
+	r.SetAnnotations(
+		mergeStringMaps(other.GetAnnotations(), r.GetAnnotations()))
 	r.SetName(other.GetName())
 	r.SetNamespace(other.GetNamespace())
 	r.copyOtherFields(other)
@@ -156,9 +178,29 @@ func (r *Resource) copyOtherFields(other *Resource) {
 	r.nameSuffixes = copyStringSlice(other.nameSuffixes)
 }
 
-func (r *Resource) Equals(o *Resource) bool {
-	return r.ReferencesEqual(o) &&
-		reflect.DeepEqual(r.kunStr, o.kunStr)
+func (r *Resource) MergeDataMapFrom(o *Resource) {
+	r.SetDataMap(mergeStringMaps(o.GetDataMap(), r.GetDataMap()))
+}
+
+func (r *Resource) ErrIfNotEquals(o *Resource) error {
+	meYaml, err := r.AsYAML()
+	if err != nil {
+		return err
+	}
+	otherYaml, err := o.AsYAML()
+	if err != nil {
+		return err
+	}
+	if !r.ReferencesEqual(o) {
+		return fmt.Errorf("references unequal")
+	}
+	if string(meYaml) != string(otherYaml) {
+		return fmt.Errorf("---  self:\n"+
+			"%s\n"+
+			"--- other:\n"+
+			"%s\n", meYaml, otherYaml)
+	}
+	return nil
 }
 
 func (r *Resource) ReferencesEqual(o *Resource) bool {
@@ -178,12 +220,6 @@ func (r *Resource) ReferencesEqual(o *Resource) bool {
 
 func (r *Resource) KunstructEqual(o *Resource) bool {
 	return reflect.DeepEqual(r.kunStr, o.kunStr)
-}
-
-// Merge performs merge with other resource.
-func (r *Resource) Merge(other *Resource) {
-	r.Replace(other)
-	mergeConfigmap(r.Map(), other.Map(), r.Map())
 }
 
 func (r *Resource) copyRefBy() []resid.ResId {
@@ -379,20 +415,21 @@ func (r *Resource) AppendRefVarName(variable types.Var) {
 	r.refVarNames = append(r.refVarNames, variable.Name)
 }
 
-// TODO: Add BinaryData once we sync to new k8s.io/api
-func mergeConfigmap(
-	mergedTo map[string]interface{},
-	maps ...map[string]interface{}) {
-	mergedMap := map[string]interface{}{}
-	for _, m := range maps {
-		datamap, ok := m["data"].(map[string]interface{})
-		if ok {
-			for key, value := range datamap {
-				mergedMap[key] = value
-			}
-		}
+// ApplySmPatch applies the provided strategic merge patch.
+func (r *Resource) ApplySmPatch(patch *Resource) error {
+	node, err := filtersutil.GetRNode(patch)
+	if err != nil {
+		return err
 	}
-	mergedTo["data"] = mergedMap
+	n, ns := r.GetName(), r.GetNamespace()
+	err = filtersutil.ApplyToJSON(patchstrategicmerge.Filter{
+		Patch: node,
+	}, r)
+	if !r.IsEmpty() {
+		r.SetName(n)
+		r.SetNamespace(ns)
+	}
+	return err
 }
 
 func mergeStringMaps(maps ...map[string]string) map[string]string {

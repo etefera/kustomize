@@ -159,7 +159,7 @@ subjects:
   name: default
   namespace: irrelevant
 ---
-apiVersion: admissionregistration.k8s.io/v1beta1
+apiVersion: admissionregistration.k8s.io/v1
 kind: ValidatingWebhookConfiguration
 metadata:
   name: example
@@ -180,15 +180,17 @@ webhooks:
         name: svc3
         namespace: random
 ---
-apiVersion: apiextensions.k8s.io/v1beta1
+apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   name: crds.my.org
 ---
+apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
   name: cr1
 ---
+apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
   name: crb1
@@ -197,6 +199,7 @@ subjects:
   name: default
   namespace: irrelevant
 ---
+apiVersion: v1
 kind: PersistentVolume
 metadata:
   name: pv1
@@ -257,7 +260,7 @@ subjects:
   name: default
   namespace: newnamespace
 ---
-apiVersion: admissionregistration.k8s.io/v1beta1
+apiVersion: admissionregistration.k8s.io/v1
 kind: ValidatingWebhookConfiguration
 metadata:
   name: p1-example-s1
@@ -278,15 +281,17 @@ webhooks:
       namespace: random
   name: example3
 ---
-apiVersion: apiextensions.k8s.io/v1beta1
+apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   name: crds.my.org
 ---
+apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
   name: p1-cr1-s1
 ---
+apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
   name: p1-crb1-s1
@@ -295,13 +300,14 @@ subjects:
   name: default
   namespace: newnamespace
 ---
+apiVersion: v1
 kind: PersistentVolume
 metadata:
   name: p1-pv1-s1
 `)
 }
 
-// This serie of constants is used to prove the need of
+// This series of constants is used to prove the need of
 // the namespace field in the objref field of the var declaration.
 // The following tests demonstrate that it creates umbiguous variable
 // declaration if two entities of the kind with the same name
@@ -466,10 +472,12 @@ spec:
 // not specified
 func TestVariablesAmbiguous(t *testing.T) {
 	th := kusttest_test.MakeHarness(t)
-	th.WriteK("/namespaceNeedInVar/myapp", namespaceNeedInVarMyApp)
-	th.WriteF("/namespaceNeedInVar/myapp/elasticsearch-dev-service.yaml", namespaceNeedInVarDevResources)
-	th.WriteF("/namespaceNeedInVar/myapp/elasticsearch-test-service.yaml", namespaceNeedInVarTestResources)
-	err := th.RunWithErr("/namespaceNeedInVar/myapp", th.MakeDefaultOptions())
+	th.WriteK(".", namespaceNeedInVarMyApp)
+	th.WriteF("elasticsearch-dev-service.yaml",
+		namespaceNeedInVarDevResources)
+	th.WriteF("elasticsearch-test-service.yaml",
+		namespaceNeedInVarTestResources)
+	err := th.RunWithErr(".", th.MakeDefaultOptions())
 	if err == nil {
 		t.Fatalf("expected error")
 	}
@@ -523,16 +531,20 @@ vars:
 // and resources into multiple kustomization context/folders instead of one.
 func TestVariablesAmbiguousWorkaround(t *testing.T) {
 	th := kusttest_test.MakeHarness(t)
-	th.WriteK("/namespaceNeedInVar/dev", namespaceNeedInVarDevFolder)
-	th.WriteF("/namespaceNeedInVar/dev/elasticsearch-dev-service.yaml", namespaceNeedInVarDevResources)
-	th.WriteK("/namespaceNeedInVar/test", namespaceNeedInVarTestFolder)
-	th.WriteF("/namespaceNeedInVar/test/elasticsearch-test-service.yaml", namespaceNeedInVarTestResources)
-	th.WriteK("/namespaceNeedInVar/workaround", `
+	opts := th.MakeDefaultOptions()
+	if opts.UseKyaml {
+		t.Skip("TODO(#3396)")
+	}
+	th.WriteK("dev", namespaceNeedInVarDevFolder)
+	th.WriteF("dev/elasticsearch-dev-service.yaml", namespaceNeedInVarDevResources)
+	th.WriteK("test", namespaceNeedInVarTestFolder)
+	th.WriteF("test/elasticsearch-test-service.yaml", namespaceNeedInVarTestResources)
+	th.WriteK("workaround", `
 resources:
 - ../dev
 - ../test
 `)
-	m := th.Run("/namespaceNeedInVar/workaround", th.MakeDefaultOptions())
+	m := th.Run("workaround", opts)
 	th.AssertActualEqualsExpected(m, namespaceNeedInVarExpectedOutput)
 }
 
@@ -579,9 +591,13 @@ vars:
 // to the variable declarations allows to disambiguate the variables.
 func TestVariablesDisambiguatedWithNamespace(t *testing.T) {
 	th := kusttest_test.MakeHarness(t)
-	th.WriteK("/namespaceNeedInVar/myapp", namespaceNeedInVarMyAppWithNamespace)
-	th.WriteF("/namespaceNeedInVar/myapp/elasticsearch-dev-service.yaml", namespaceNeedInVarDevResources)
-	th.WriteF("/namespaceNeedInVar/myapp/elasticsearch-test-service.yaml", namespaceNeedInVarTestResources)
-	m := th.Run("/namespaceNeedInVar/myapp", th.MakeDefaultOptions())
+	opts := th.MakeDefaultOptions()
+	if opts.UseKyaml {
+		t.Skip("TODO(#3396)")
+	}
+	th.WriteK(".", namespaceNeedInVarMyAppWithNamespace)
+	th.WriteF("elasticsearch-dev-service.yaml", namespaceNeedInVarDevResources)
+	th.WriteF("elasticsearch-test-service.yaml", namespaceNeedInVarTestResources)
+	m := th.Run(".", th.MakeDefaultOptions())
 	th.AssertActualEqualsExpected(m, namespaceNeedInVarExpectedOutput)
 }
