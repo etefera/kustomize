@@ -26,27 +26,95 @@ func TestValueAddFilter(t *testing.T) {
 	}{
 		"simpleAdd": {
 			input: `
-kind: SomeKind
-`,
+		kind: SomeKind
+		`,
 			expectedOutput: `
-kind: SomeKind
-spec:
-  resourceRef:
-    external: valueAdded
-`,
+		kind: SomeKind
+		spec:
+		  resourceRef:
+		    external: valueAdded
+		`,
 			filter: Filter{
 				Value:     "valueAdded",
 				FieldPath: "spec/resourceRef/external",
 			},
 		},
+		"addToList": {
+			input: `
+kind: VirtualService
+metadata:
+  name: service # {"$kpt-set":"name"}
+spec:
+  hosts:
+  - service.dev.acme.io # {"$kpt-set":"hosts"}
+  gateways:
+  - gateway.istio-system.svc.cluster.local # {"$kpt-set":"istio-gateway"}
+  http:
+  - name: service # {"$kpt-set":"name"}
+    route:
+    - destination:
+        host: service # {"$kpt-set":"name"}
+        port:
+          number: 80
+`,
+			expectedOutput: `
+kind: VirtualService
+metadata:
+  name: service # {"$kpt-set":"name"}
+spec:
+  hosts:
+  - service.dev.acme.io # {"$kpt-set":"hosts"}
+  gateways:
+  - gateway.istio-system.svc.cluster.local # {"$kpt-set":"istio-gateway"}
+  http:
+  - name: service # {"$kpt-set":"name"}
+    route:
+    - destination:
+        host: service # {"$kpt-set":"name"}
+        port:
+		  number: 80
+	corsPolicy:
+		allowOrigins:
+		  - regex: https://ui.dev.acme.io
+		allowMethods:
+		  - POST
+		  - GET
+		  - OPTIONS
+		  - HEAD
+		  - PUT
+		  - DELETE
+		allowHeaders:
+		  - "*"
+		allowCredentials: true
+		maxAge: "24h"
+`,
+			filter: Filter{
+				Value: `
+				allowOrigins:
+				  - regex: https://ui.dev.acme.io
+				allowMethods:
+				  - POST
+				  - GET
+				  - OPTIONS
+				  - HEAD
+				  - PUT
+				  - DELETE
+				allowHeaders:
+				  - "*"
+				allowCredentials: true
+				maxAge: "24h"
+					`,
+				FieldPath: "spec/http/0/corsPolicy",
+			},
+		},
 		"replaceExisting": {
 			input: someResource,
 			expectedOutput: `
-kind: SomeKind
-spec:
-  resourceRef:
-    external: valueAdded
-`,
+		kind: SomeKind
+		spec:
+		  resourceRef:
+		    external: valueAdded
+		`,
 			filter: Filter{
 				Value:     "valueAdded",
 				FieldPath: "spec/resourceRef/external",
@@ -55,11 +123,11 @@ spec:
 		"prefixExisting": {
 			input: someResource,
 			expectedOutput: `
-kind: SomeKind
-spec:
-  resourceRef:
-    external: valueAdded/projects/whatever
-`,
+		kind: SomeKind
+		spec:
+		  resourceRef:
+		    external: valueAdded/projects/whatever
+		`,
 			filter: Filter{
 				Value:            "valueAdded",
 				FieldPath:        "spec/resourceRef/external",
@@ -69,11 +137,11 @@ spec:
 		"postfixExisting": {
 			input: someResource,
 			expectedOutput: `
-kind: SomeKind
-spec:
-  resourceRef:
-    external: projects/whatever/valueAdded
-`,
+		kind: SomeKind
+		spec:
+		  resourceRef:
+		    external: projects/whatever/valueAdded
+		`,
 			filter: Filter{
 				Value:            "valueAdded",
 				FieldPath:        "spec/resourceRef/external",
@@ -83,11 +151,11 @@ spec:
 		"placeInMiddleOfExisting": {
 			input: someResource,
 			expectedOutput: `
-kind: SomeKind
-spec:
-  resourceRef:
-    external: projects/valueAdded/whatever
-`,
+		kind: SomeKind
+		spec:
+		  resourceRef:
+		    external: projects/valueAdded/whatever
+		`,
 			filter: Filter{
 				Value:            "valueAdded",
 				FieldPath:        "spec/resourceRef/external",
